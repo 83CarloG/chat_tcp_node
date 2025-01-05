@@ -3,8 +3,6 @@
 const path = require('path');
 const process = require('process')
 
-const {getName} = require(path.resolve(process.cwd(), 'services', 'chat-nicks'));
-
 function isSameSocket(s1, s2) {
     return (s1.remoteAddress === s2.remoteAddress && s1.remotePort === s2.remotePort);
 }
@@ -21,8 +19,13 @@ function getSocketsExcluding(sockets, sock) {
     return sockets.filter(s => !isSameSocket(s, sock));
 }
 
-function socketTold(sock) {
+function socketToId(sock) {
     return `${sock.remoteAddress}:${sock.remotePort}`
+}
+
+function parseNickMessage(msg) {
+    const [_, name] = msg.split(" ");
+    return name;
 }
 
 function parsePvtMessage(msg) {
@@ -31,11 +34,6 @@ function parsePvtMessage(msg) {
     return [receiver, rest];
 
 }
-
-function getSocketByName(sockets, name) {
-    return sockets.find((s) => getName(s) === name);
-}
-
 function colorGrey(str) {
     return `\x1b[97;100m${str}\x1b[0m`
 }
@@ -48,9 +46,9 @@ module.exports = {
     broadcastMessage,
     getSocketsExcluding,
     removeCRLF,
-    socketTold,
+    socketToId,
     parsePvtMessage,
-    getSocketByName,
+    parseNickMessage,
     colorGrey,
     colorGreen
 }
