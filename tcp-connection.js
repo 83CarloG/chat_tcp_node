@@ -12,6 +12,8 @@ server.listen(port, host, () => {
     console.log("TCP Server is running on port " + port + ".");
 });
 
+
+
 let sockets = [];
 let namesMap = {};
 
@@ -55,13 +57,31 @@ function processMessage(sock, message) {
     }
 }
 
+const  joinedMessage = (sock) =>
+    `${colorGrey(getName(sock))} joined the chat\n`
+
+
+const leftMessage = (sock) =>
+    `${colorGrey(getName(sock))} left the chat\n`
+
+
 server.on("connection", function (sock) {
     console.log(`CONNECTED:  ${socketToId(sock)}`);
 
     sockets.push(sock);
     setName(sock, socketToId(sock));
+    broadcastMessage(
+        sockets,
+        joinedMessage(sock)
+    )
 
     sock.on("data", function (data) {
         processMessage(sock, data.toString());
+    });
+
+    sock.on("close", function (){
+        sockets = getSocketsExcluding(sockets, sock);
+        broadcastMessage(sockets, leftMessage(sock));
+        console.log(`DISCONNECTED:  ${socketToId(sock)}`)
     });
 });
