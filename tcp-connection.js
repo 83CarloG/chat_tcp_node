@@ -6,6 +6,7 @@ const path = require('path');
 const process = require('process');
 
 const  {broadcastMessage, getSocketsExcluding, removeCRLF, socketToId,parseNickMessage, parsePvtMessage, colorGrey, colorGreen} = require(path.resolve(process.cwd(), "utilities", "chat-utils"))
+const LurkersDetector = require(path.resolve(process.cwd(), "lurkers-detector"))
 
 const server = net.createServer();
 server.listen(port, host, () => {
@@ -16,7 +17,14 @@ server.listen(port, host, () => {
 
 let sockets = [];
 let namesMap = {};
+let ld = new LurkersDetector(10)
 
+
+ld.on("lurker detected", (name) => {
+    console.log(`${name} is a lurker!`);
+    const sock = getSocketByName(sockets, name);
+    sock.resetAndDestroy();
+});
 function setName(sock, name) {
     namesMap[socketToId(sock)] = name;
 }
@@ -38,6 +46,7 @@ function processMessage(sock, message) {
             sockets,
             `${colorGrey(`${oldName} is now ${name}`)}\n`
         );
+        ld.renameUser(oldName, name);
     } else if (cleanMsg.startsWith("/pvt ") /* space intended*/) {
         const [receiver, pvtMsg] = parsePvtMessage(cleanMsg);
         const receiverSock = getSocketByName(sockets, receiver);
@@ -58,30 +67,34 @@ function processMessage(sock, message) {
 }
 
 const  joinedMessage = (sock) =>
-    `${colorGrey(getName(sock))} joined the chat\n`
+    `${colorGrey(getName(sock))} joined the chat\n`;
 
 
 const leftMessage = (sock) =>
-    `${colorGrey(getName(sock))} left the chat\n`
+    `${colorGrey(getName(sock))} left the chat\n`;
 
 
 server.on("connection", function (sock) {
     console.log(`CONNECTED:  ${socketToId(sock)}`);
-
     sockets.push(sock);
     setName(sock, socketToId(sock));
     broadcastMessage(
         sockets,
         joinedMessage(sock)
     )
+    console.log(ld.addUser)
+    ld.addUser(socketToId(sock));
 
     sock.on("data", function (data) {
+        ld.touchUser(socketToId(sock));
         processMessage(sock, data.toString());
+
     });
 
     sock.on("close", function (){
         sockets = getSocketsExcluding(sockets, sock);
         broadcastMessage(sockets, leftMessage(sock));
         console.log(`DISCONNECTED:  ${socketToId(sock)}`)
+        ld.removeUser(socketToId(sock));
     });
 });
